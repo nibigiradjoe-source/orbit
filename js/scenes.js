@@ -377,7 +377,46 @@ function cpm(el, sc, ctx) {
   return () => { el.removeEventListener('click', h); off(); };
 }
 
-const SCENES = { tokens, temperature, context, agentloop, pipeline, structures, orbit3d, prism3d, grid, cpm };
+/* ---------- kanban: flow with and without a WIP limit */
+function kanban(el, sc, ctx) {
+  const L = ctx.L, N = sc.cards.length, NEED = 2;
+  let wip = true, cards, t, first;
+  const stage = frame(el, ctx, `<div class="kb">${sc.cols.map((c, k) => `<div class="kb-col" data-c="${k}"><b class="small">${esc(L(c))}<span class="mono kb-n"></span></b><div class="kb-cards"></div></div>`).join('')}</div>
+    <div class="row between small"><span class="mono kb-stat"></span><label class="kb-tog"><input type="checkbox" checked> ${esc(L(T('WIP limit 2 in Doing', 'Limite 2 en cours')))}</label></div><p class="small kb-note" aria-live="polite"></p>`,
+    [{ id: 'step', label: STEP }, { id: 'play', label: PLAY }, { id: 'reset', label: RESET }]);
+  const reset = () => { cards = sc.cards.map((c, i) => ({ i, col: 0, w: 0 })); t = 0; first = null; draw(); stage.querySelector('.kb-note').textContent = ''; };
+  const step = () => {
+    if (cards.every(c => c.col === 3)) { pl.stop(); return; }
+    t++;
+    const rev = cards.find(c => c.col === 2); if (rev) rev.col = 3;
+    const doing = cards.filter(c => c.col === 1);
+    doing.forEach(c => { c.w += 1 / doing.length; });
+    doing.filter(c => c.w >= NEED - 1e-9).forEach(c => { c.col = 2; });
+    const lim = wip ? 2 : Infinity;
+    cards.filter(c => c.col === 0).forEach(c => { if (cards.filter(x => x.col === 1).length < lim) c.col = 1; });
+    if (first === null && cards.some(c => c.col === 3)) first = t;
+    draw();
+    if (cards.every(c => c.col === 3)) { pl.stop(); const pb = stage.parentNode.querySelector('[data-sc="play"]'); if (pb) pb.textContent = L(PLAY); stage.querySelector('.kb-note').textContent = wip ? L(T('With the limit, the first page went live early and work flowed steadily.', 'Avec la limite, la première page est sortie tôt et le travail a circulé régulièrement.')) : L(T('Without the limit, everything was “in progress” for a long time and finished in a rush at the end.', 'Sans limite, tout est resté « en cours » longtemps et a fini en catastrophe à la fin.')); }
+  };
+  const draw = () => {
+    stage.querySelectorAll('.kb-col').forEach(col => {
+      const k = +col.dataset.c, inCol = cards.filter(c => c.col === k);
+      col.querySelector('.kb-n').textContent = ` ${inCol.length}${k === 1 && wip ? '/2' : ''}`;
+      col.querySelector('.kb-cards').innerHTML = inCol.map(c => `<span class="kb-card">${esc(L(sc.cards[c.i]))}${k === 1 ? `<i style="width:${Math.min(100, c.w / NEED * 100)}%"></i>` : ''}</span>`).join('');
+    });
+    const done = cards.filter(c => c.col === 3).length;
+    stage.querySelector('.kb-stat').textContent = `${L(T('Step', 'Étape'))} ${t} · ${L(T('done', 'fait'))} ${done}/${N}${first ? ` · ${L(T('first done at step', '1re finie à l’étape'))} ${first}` : ''}`;
+  };
+  const pl = ticker(step, 700, ctx);
+  const tog = stage.querySelector('.kb-tog input');
+  const onTog = () => { wip = tog.checked; pl.stop(); reset(); const pb = el.querySelector('[data-sc="play"]'); if (pb) pb.textContent = L(PLAY); };
+  tog.addEventListener('change', onTog);
+  const off = onCtl(el, { step: () => { pl.stop(); step(); }, play: b => { if (pl.on) { pl.stop(); b.textContent = L(PLAY); } else { pl.play(); b.textContent = L(PAUSE); } }, reset: () => { pl.stop(); reset(); } });
+  reset();
+  return () => { pl.stop(); off(); tog.removeEventListener('change', onTog); };
+}
+
+const SCENES = { tokens, temperature, context, agentloop, pipeline, structures, orbit3d, prism3d, grid, cpm, kanban };
 window.OrbitScenes = {
   mount(el, sc, ctx) { const f = SCENES[sc.type]; if (!f) { el.textContent = ''; return () => {}; } try { return f(el, sc, ctx) || (() => {}); } catch (e) { el.textContent = ''; return () => {}; } },
   is3d: sc => ['orbit3d', 'prism3d'].includes(sc?.type),

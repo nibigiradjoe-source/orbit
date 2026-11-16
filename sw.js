@@ -1,5 +1,5 @@
 /* Orbit offline worker: precache the app and every course file; serve cache-first, refresh in the background. */
-const VERSION = 'orbit-v3';
+const VERSION = 'orbit-v4';
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/app.js', 'js/scenes.js', 'content/catalog.json', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'js/vendor/three.min.js'];
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
