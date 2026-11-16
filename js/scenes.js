@@ -309,7 +309,75 @@ function prism3d(el, sc, ctx) {
   return () => { stopped = true; inputs.forEach(i => i.removeEventListener('input', hi)); cleanup3(); };
 }
 
-const SCENES = { tokens, temperature, context, agentloop, pipeline, structures, orbit3d, prism3d };
+/* ---------- grid: 2x2 power-interest (or any 2-axis) grid */
+function grid(el, sc, ctx) {
+  const L = ctx.L;
+  const q = sc.quads; // order: top-left, top-right, bottom-left, bottom-right
+  const stage = frame(el, ctx, `<div class="gr-wrap"><span class="gr-y mono">${esc(L(sc.axes.y))} ↑</span>
+    <div class="gr">${q.map((t, k) => `<div class="gr-q" data-q="${k}"><span>${esc(L(t))}</span></div>`).join('')}
+    ${sc.items.map((it, k) => `<i class="gr-dot${it.x > .55 ? ' l' : ''}" data-i="${k}" style="left:${it.x * 100}%;top:${(1 - it.y) * 100}%"><b>${esc(L(it.t))}</b></i>`).join('')}</div>
+    <span class="gr-x mono">${esc(L(sc.axes.x))} →</span></div>
+    <div class="gr-tray">${sc.items.map((it, k) => `<button type="button" class="chip" data-i="${k}">${esc(L(it.t))}</button>`).join('')}</div>
+    <p class="small gr-note" aria-live="polite"></p>`, [{ id: 'all', label: T('Place all', 'Tout placer') }, { id: 'reset', label: RESET }]);
+  const quad = it => (it.y >= .5 ? 0 : 2) + (it.x >= .5 ? 1 : 0);
+  const place = k => {
+    const it = sc.items[k];
+    stage.querySelectorAll('.gr-dot').forEach(d => d.classList.toggle('cur', +d.dataset.i === k));
+    stage.querySelector(`.gr-dot[data-i="${k}"]`).classList.add('on');
+    stage.querySelector(`.chip[data-i="${k}"]`).setAttribute('aria-pressed', 'true');
+    stage.querySelectorAll('.gr-q').forEach(e => e.classList.toggle('hi', +e.dataset.q === quad(it)));
+    stage.querySelector('.gr-note').textContent = `${L(it.t)} → ${L(q[quad(it)])}`;
+  };
+  const reset = () => { stage.querySelectorAll('.gr-dot').forEach(d => d.classList.remove('on')); stage.querySelectorAll('.chip').forEach(c => c.removeAttribute('aria-pressed')); stage.querySelectorAll('.gr-q').forEach(e => e.classList.remove('hi')); stage.querySelector('.gr-note').textContent = ''; };
+  const timers = [];
+  const all = () => { reset(); sc.items.forEach((_, k) => timers.push(setTimeout(() => place(k), ctx.reduced ? 0 : k * 220))); };
+  const h = e => { const c = e.target.closest('.chip,.gr-dot'); if (c) place(+c.dataset.i); };
+  el.addEventListener('click', h);
+  const off = onCtl(el, { all, reset });
+  return () => { timers.forEach(clearTimeout); el.removeEventListener('click', h); off(); };
+}
+
+/* ---------- cpm: mini Gantt with critical path; tap a task to delay it */
+function cpm(el, sc, ctx) {
+  const L = ctx.L, tasks = sc.tasks, extra = {};
+  const calc = () => {
+    const es = {}, ef = {}, by = Object.fromEntries(tasks.map(t => [t.id, t]));
+    const dur = t => t.d + (extra[t.id] || 0);
+    const done = new Set();
+    while (done.size < tasks.length) tasks.forEach(t => { if (done.has(t.id) || !t.after.every(a => done.has(a))) return; es[t.id] = Math.max(0, ...t.after.map(a => ef[a])); ef[t.id] = es[t.id] + dur(t); done.add(t.id); });
+    const end = Math.max(...tasks.map(t => ef[t.id]));
+    const ls = {}, lf = {};
+    const order = [...tasks].sort((a, b) => ef[b.id] - ef[a.id]);
+    const succ = id => tasks.filter(t => t.after.includes(id));
+    const fin = new Set();
+    while (fin.size < tasks.length) order.forEach(t => { if (fin.has(t.id) || !succ(t.id).every(x => fin.has(x.id))) return; lf[t.id] = Math.min(end, ...succ(t.id).map(x => ls[x.id])); ls[t.id] = lf[t.id] - dur(t); fin.add(t.id); });
+    return { es, ef, end, fl: Object.fromEntries(tasks.map(t => [t.id, ls[t.id] - es[t.id]])), by, dur };
+  };
+  const base = calc().end;
+  const stage = frame(el, ctx, `<div class="cp" role="list">${tasks.map(t => `<button type="button" class="cp-row" role="listitem" data-id="${t.id}"><span class="cp-l"><b class="mono">${t.id}</b> ${esc(L(t.t))}</span><span class="cp-track"><i class="cp-bar"><em class="cp-x"></em></i></span><span class="cp-f mono small"></span></button>`).join('')}</div>
+    <div class="row between small"><span>${esc(L(T('Launch day', 'Jour du lancement')))}: <b class="mono cp-end"></b></span><span class="cp-d mono"></span></div><p class="small cp-note" aria-live="polite"></p>`,
+    [{ id: 'reset', label: RESET }]);
+  const draw = (hit) => {
+    const r = calc(), W = Math.max(r.end, base) + 1;
+    tasks.forEach(t => {
+      const row = stage.querySelector(`.cp-row[data-id="${t.id}"]`), bar = row.querySelector('.cp-bar');
+      bar.style.left = (r.es[t.id] / W * 100) + '%'; bar.style.width = (r.dur(t) / W * 100) + '%';
+      bar.querySelector('.cp-x').style.width = ((extra[t.id] || 0) / r.dur(t) * 100) + '%';
+      row.classList.toggle('crit', r.fl[t.id] === 0);
+      row.querySelector('.cp-f').textContent = r.fl[t.id] === 0 ? L(T('critical', 'critique')) : `${L(T('float', 'marge'))} ${r.fl[t.id]}`;
+    });
+    stage.querySelector('.cp-end').textContent = r.end;
+    const d = r.end - base; stage.querySelector('.cp-d').textContent = d ? `+${d} ${L(sc.unit)}${d > 1 ? 's' : ''}` : '';
+    if (hit) { const t = r.by[hit]; stage.querySelector('.cp-note').textContent = r.end > hit._prev ? `${L(t.t)} +1 → ${L(T('the launch moves', 'le lancement recule'))}` : `${L(t.t)} +1 → ${L(T('absorbed by float', 'absorbé par la marge'))}`; }
+  };
+  const h = e => { const b = e.target.closest('.cp-row'); if (!b) return; const prev = calc().end; extra[b.dataset.id] = (extra[b.dataset.id] || 0) + 1; const id = b.dataset.id; const r = calc(); draw(); stage.querySelector('.cp-note').textContent = `${L(r.by[id].t)} +1 → ${r.end > prev ? L(T('the launch moves', 'le lancement recule')) : L(T('absorbed by float', 'absorbé par la marge'))}`; };
+  el.addEventListener('click', h);
+  const off = onCtl(el, { reset: () => { Object.keys(extra).forEach(k => delete extra[k]); draw(); stage.querySelector('.cp-note').textContent = ''; } });
+  draw();
+  return () => { el.removeEventListener('click', h); off(); };
+}
+
+const SCENES = { tokens, temperature, context, agentloop, pipeline, structures, orbit3d, prism3d, grid, cpm };
 window.OrbitScenes = {
   mount(el, sc, ctx) { const f = SCENES[sc.type]; if (!f) { el.textContent = ''; return () => {}; } try { return f(el, sc, ctx) || (() => {}); } catch (e) { el.textContent = ''; return () => {}; } },
   is3d: sc => ['orbit3d', 'prism3d'].includes(sc?.type),

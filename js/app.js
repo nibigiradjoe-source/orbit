@@ -195,7 +195,15 @@ function md(src) {
   return text.split(/\n{2,}/).map(block => {
     const lines = block.split('\n');
     if (lines.every(l => /^- /.test(l))) return `<ul>${lines.map(l => `<li>${inline(l.slice(2))}</li>`).join('')}</ul>`;
+    if (/^\d+\. /.test(lines[0]) && lines.every(l => /^\d+\. /.test(l) || /^\s+- /.test(l)) && lines.some(l => /^\s+- /.test(l))) {
+      const items = []; lines.forEach(l => { if (/^\d+\. /.test(l)) items.push({ t: l.replace(/^\d+\. /, ''), sub: [] }); else items[items.length - 1].sub.push(l.replace(/^\s+- /, '')); });
+      return `<ol>${items.map(it => `<li>${inline(it.t)}${it.sub.length ? `<ul>${it.sub.map(x => `<li>${inline(x)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ol>`;
+    }
     if (lines.every(l => /^\d+\. /.test(l))) return `<ol>${lines.map(l => `<li>${inline(l.replace(/^\d+\. /, ''))}</li>`).join('')}</ol>`;
+    if (lines.length > 1 && lines.every(l => /^\|.*\|$/.test(l.trim()))) {
+      const rows = lines.filter(l => !/^\|[\s:|-]+\|$/.test(l.trim())).map(l => l.trim().slice(1, -1).split('|').map(c => c.trim()));
+      return `<div class="tbl"><table><thead><tr>${rows[0].map(c => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${rows.slice(1).map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    }
     return `<p>${lines.map(inline).join('<br>')}</p>`;
   }).join('');
 }
