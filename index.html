@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1D6A86">
+<title>Orbit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="css/app.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <a class="brand" href="#today" aria-label="Orbit, today">
+      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><ellipse cx="11" cy="11" rx="9.5" ry="5" fill="none" stroke="currentColor" stroke-width="1.6" transform="rotate(-24 11 11)"/><circle cx="11" cy="11" r="2.6" fill="currentColor"/><circle cx="18.6" cy="7.4" r="1.7" fill="var(--accent)"/></svg>
+      <span>Orbit</span>
+    </a>
+    <div class="topbar-right">
+      <span id="sync" class="sync" role="status" aria-live="polite"><i></i><span>…</span></span>
+      <button id="lang" class="chip-btn" type="button" aria-label="Switch language">FR</button>
+      <a class="icon-btn" href="#prefs" aria-label="Settings"><svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm7.4-2.1.1-1.4-.1-1.4 2-1.6-2-3.4-2.4 1a8 8 0 0 0-2.4-1.4L14.2 2h-4l-.4 2.6a8 8 0 0 0-2.4 1.4l-2.4-1-2 3.4 2 1.6-.1 1.4.1 1.4-2 1.6 2 3.4 2.4-1a8 8 0 0 0 2.4 1.4l.4 2.6h4l.4-2.6a8 8 0 0 0 2.4-1.4l2.4 1 2-3.4-2-1.6Z"/></svg></a>
+    </div>
+  </header>
+  <nav class="tabs" aria-label="Main">
+    <a href="#today" data-tab="today"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg><span data-t="tab_today">Today</span></a>
+    <a href="#roadmap" data-tab="roadmap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18c4-9 9-12 18-13" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="7" cy="12.6" r="1.8" fill="currentColor"/><circle cx="13" cy="7.6" r="1.8" fill="currentColor"/></svg><span data-t="tab_roadmap">Roadmap</span></a>
+    <a href="#courses" data-tab="courses"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7v14H4zM13 5h7v14h-7z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span data-t="tab_courses">Courses</span></a>
+    <a href="#review" data-tab="review"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span data-t="tab_review">Review</span><b id="due-badge" class="badge" hidden></b></a>
+    <a href="#progress" data-tab="progress"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V11M12 19V5M19 19v-6" fill="none" stroke="currentColor" stroke-width="2"/></svg><span data-t="tab_progress">Progress</span></a>
+  </nav>
+  <main id="view" tabindex="-1"><p class="loading">Loading Orbit…</p></main>
+</div>
+<dialog id="sheet" aria-labelledby="sheet-title"></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="js/app.js"></script>
+</body>
+</html>
