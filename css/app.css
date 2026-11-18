@@ -352,3 +352,18 @@ input[type=range]{accent-color:var(--accent);min-height:32px}
 .kb-tog{display:flex;gap:6px;align-items:center;min-height:44px}
 @keyframes kbIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.kb-card{animation:none}}
+pre.code{margin:0 0 12px;padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);overflow-x:auto;font:500 12.5px/1.5 var(--mono);white-space:pre}
+p code,li code{font:500 0.9em var(--mono);background:var(--surface);padding:1px 4px;border-radius:4px}
+/* cost scene */
+.co{display:flex;flex-direction:column;gap:10px}
+.co-r{display:grid;grid-template-columns:1fr auto;grid-template-areas:'l o' 'r r';gap:2px 8px;align-items:center}
+.co-r span{grid-area:l}.co-r b{grid-area:o;font-size:13px}.co-r input{grid-area:r;width:100%;min-height:32px;accent-color:var(--accent)}
+.co-p summary{cursor:pointer;min-height:36px;display:flex;align-items:center}
+.co-n{display:grid;grid-template-columns:1fr 110px;gap:8px;align-items:center;margin-top:6px}
+.co-n input{min-height:40px;border:1px solid var(--line);border-radius:8px;padding:0 8px;background:var(--bg);color:var(--ink);font:500 14px var(--mono)}
+.co-out{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.co-out>div{border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--surface);display:flex;flex-direction:column;gap:2px}
+.co-out b{font-size:20px}
+.free h3{margin:6px 0 4px;font-size:18px}
+.free.done{opacity:.75}
+.free .row{flex-wrap:wrap;gap:8px;margin:8px 0}

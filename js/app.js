@@ -191,15 +191,16 @@ const addMin = (hm, min) => { const [h, m] = hm.split(':').map(Number); const tt
 function md(src) {
   const text = L(src);
   if (!text) return '';
-  const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
-  return text.split(/\n{2,}/).map(block => {
+  const inline = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>');
+  return text.split(/(```[\s\S]*?```)/).flatMap(part => /^```/.test(part) ? [part] : part.split(/\n{2,}/)).filter(b => b.trim()).map(block => {
+    if (/^```/.test(block) && /```$/.test(block.trim())) return `<pre class="code"><code>${esc(block.replace(/^```\w*\n?/, '').replace(/\n?```\s*$/, ''))}</code></pre>`;
     const lines = block.split('\n');
     if (lines.every(l => /^- /.test(l))) return `<ul>${lines.map(l => `<li>${inline(l.slice(2))}</li>`).join('')}</ul>`;
     if (/^\d+\. /.test(lines[0]) && lines.every(l => /^\d+\. /.test(l) || /^\s+- /.test(l)) && lines.some(l => /^\s+- /.test(l))) {
       const items = []; lines.forEach(l => { if (/^\d+\. /.test(l)) items.push({ t: l.replace(/^\d+\. /, ''), sub: [] }); else items[items.length - 1].sub.push(l.replace(/^\s+- /, '')); });
       return `<ol>${items.map(it => `<li>${inline(it.t)}${it.sub.length ? `<ul>${it.sub.map(x => `<li>${inline(x)}</li>`).join('')}</ul>` : ''}</li>`).join('')}</ol>`;
     }
-    if (lines.every(l => /^\d+\. /.test(l))) return `<ol>${lines.map(l => `<li>${inline(l.replace(/^\d+\. /, ''))}</li>`).join('')}</ol>`;
+    if (lines.every(l => /^\d+\. /.test(l))) return `<ol${parseInt(lines[0], 10) > 1 ? ` start="${parseInt(lines[0], 10)}"` : ''}>${lines.map(l => `<li>${inline(l.replace(/^\d+\. /, ''))}</li>`).join('')}</ol>`;
     if (lines.length > 1 && lines.every(l => /^\|.*\|$/.test(l.trim()))) {
       const rows = lines.filter(l => !/^\|[\s:|-]+\|$/.test(l.trim())).map(l => l.trim().slice(1, -1).split('|').map(c => c.trim()));
       return `<div class="tbl"><table><thead><tr>${rows[0].map(c => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${rows.slice(1).map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
@@ -595,6 +596,7 @@ function vToday() {
     <div class="card"><div class="stat"><b>${streak()}</b><span>${esc(t('streak'))} · ${esc(t('days'))}</span></div></div>
   </div>
 
+  ${(() => { const nf = nextFree(now); return nf ? `<section class="card"><span class="eyebrow">${esc(lang() === 'fr' ? 'Bonus · certificat gratuit' : 'Bonus · free certificate')} · <span class="mono">${esc(nf.it.mins)}</span></span><h2>${esc(L(nf.it.t))}</h2><p class="small muted">${esc(nf.it.provider)} · ${esc(L(nf.it.cred))}</p><div class="row"><a class="btn" href="${esc(nf.it.url)}" target="_blank" rel="noopener">${esc(lang() === 'fr' ? 'Ouvrir' : 'Open')} ↗</a><a class="link" href="#course-${nf.c.id}">${esc(lang() === 'fr' ? 'Voir les 11' : 'See all 11')}</a></div></section>` : ''; })()}
   ${isSunday ? `<section class="card"><h2>${esc(t('sunday_title'))}</h2><a class="btn" href="#weekly">${esc(t('sunday_open'))}</a></section>` : ''}
 
   ${upcoming.length ? `<section class="card"><h2>${esc(t('coming_up'))}</h2><div class="list">${upcoming.map(u => `<div class="item"><span class="grow"><span class="t">${esc(u.name)}</span><span class="s">${esc(t('starts'))} <span class="mono">${esc(fmtDate(u.date))}</span>${u.aid ? ` · ${addDays(u.date, -21) <= now ? esc(t('apply_aid_now')) : `${esc(t('apply_aid'))} <span class="mono">${esc(fmtDate(addDays(u.date, -21)))}</span>`}` : ''}</span></span></div>`).join('')}</div></section>` : ''}
@@ -655,12 +657,39 @@ function vCourses() {
   return `
   <section class="stack"><h1>${esc(t('tab_courses'))}</h1><p class="muted">${esc(t('courses_lead'))}</p></section>
   <section class="card"><h2>${esc(t('tracks'))}</h2><div class="list">${catalog.courses.filter(c => c.kind === 'track').map(card).join('')}</div></section>
-  <section class="card"><h2>${esc(t('main_courses'))}</h2><div class="list">${catalog.courses.filter(c => c.kind === 'main').map(card).join('')}</div></section>`;
+  <section class="card"><h2>${esc(t('main_courses'))}</h2><div class="list">${catalog.courses.filter(c => c.kind === 'main').map(card).join('')}</div></section>
+  ${catalog.courses.filter(c => c.kind === 'bonus').map(c => { const n = (c.items || []).length, d = (c.items || []).filter(it => freeDone(c, it)).length; return `<section class="card"><h2>${esc(lang() === 'fr' ? 'Bonus' : 'Bonus')}</h2><div class="list"><a class="item" href="#course-${c.id}"><span class="step-n">${esc(c.badge)}</span><span class="grow"><span class="t">${esc(c.code)} · ${esc(L(c.title))}</span><span class="s"><span class="mono">${d}/${n}</span> ${esc(lang() === 'fr' ? 'faits' : 'done')}</span></span></a></div></section>`; }).join('')}`;
+}
+const freeKey = (c, it) => `${c.id}-${it.id}`;
+const freeDone = (c, it) => { const r = state.progress.lessons[freeKey(c, it)]; return !!r && !r.off; };
+function nextFree(now) {
+  for (const c of (catalog?.courses || []).filter(x => x.kind === 'bonus'))
+    for (const it of c.items || []) if (!it.optional && !freeDone(c, it) && it.from <= now) return { c, it };
+  return null;
+}
+function vBonus(c) {
+  const now = today();
+  const rows = (c.items || []).map(it => {
+    const done = freeDone(c, it), ready = it.from <= now;
+    return `<div class="card free ${done ? 'done' : ''}">
+      <div class="row between"><span class="eyebrow">${esc(it.provider)} · <span class="mono">${esc(it.mins)}</span> · ${esc(it.lang)}</span>${it.optional ? `<span class="pill">${esc(lang() === 'fr' ? 'Facultatif' : 'Optional')}</span>` : done ? `<span class="pill ok">${esc(lang() === 'fr' ? 'Fait' : 'Done')}</span>` : ready ? `<span class="pill info">${esc(lang() === 'fr' ? 'Disponible' : 'Ready')}</span>` : ''}</div>
+      <h3>${esc(L(it.t))}</h3>
+      <p class="small"><b>${esc(lang() === 'fr' ? 'Vous obtenez :' : 'You get:')}</b> ${esc(L(it.cred))}</p>
+      <p class="small"><b>${esc(lang() === 'fr' ? 'Quand :' : 'When:')}</b> ${esc(lang() === 'fr' ? 'à partir du' : 'from')} <span class="mono">${esc(fmtDate(it.from, false))}</span>. ${esc(L(it.why))}</p>
+      <div class="row"><a class="btn primary" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(lang() === 'fr' ? 'Ouvrir le cours' : 'Open the course')} ↗</a>${it.orbit ? `<a class="btn" href="#${esc(it.orbit)}">${esc(lang() === 'fr' ? 'Préparer dans Orbit' : 'Prepare in Orbit')}</a>` : ''}</div>
+      <label class="check"><input type="checkbox" data-action="free-done" data-k="${esc(freeKey(c, it))}" ${done ? 'checked' : ''}> ${esc(lang() === 'fr' ? 'Terminé, badge ou certificat obtenu' : 'Finished, badge or certificate earned')}</label></div>`;
+  }).join('');
+  const d = (c.items || []).filter(it => freeDone(c, it)).length;
+  return `<nav class="crumbs"><a href="#courses">${esc(t('tab_courses'))}</a><span>/</span><span>${esc(c.code)}</span></nav>
+  <section class="card"><span class="eyebrow">${esc(c.code)} · <span class="mono">${d}/${(c.items || []).length}</span></span><h1>${esc(L(c.title))}</h1><p>${esc(L(c.objective))}</p><p class="note">${esc(L(c.real.cert))}</p>
+  <p class="small muted">${esc(lang() === 'fr' ? 'Ajoutez chaque badge ou certificat à LinkedIn le jour où vous l’obtenez.' : 'Add each badge or certificate to LinkedIn the day you earn it.')}</p></section>
+  ${rows}`;
 }
 
 function vCourse(r) {
   const c = courseById(r.id);
   if (!c) return `<p class="empty">Course not found. <a href="#courses">${esc(t('tab_courses'))}</a></p>`;
+  if (c.kind === 'bonus') return vBonus(c);
   const cc = content[c.id];
   const mods = c.modules.map((m, i) => {
     const unlocked = moduleUnlocked(c, i);
@@ -1184,6 +1213,7 @@ document.addEventListener('click', async e => {
     state.activity.reviews[qk] = { ivl, due: addDays(today(), ivl), at: Date.now() };
     persist('activity'); rv.i++; rv.chosen = null; render(); return;
   }
+  if (a === 'free-done') { if (el.checked) state.progress.lessons[el.dataset.k] = { at: Date.now(), score: 1, bonus: true }; else state.progress.lessons[el.dataset.k] = { at: Date.now(), off: true }; persist('progress'); render(); return; }
   if (a === 'saver') { state.settings.saver = el.checked; persist('settings'); return; }
   if (a === 'teach-ai') { teachFeedback(el.dataset.id); return; }
   if (a === 'tutor-send') { tutorSend(el.dataset.id); return; }

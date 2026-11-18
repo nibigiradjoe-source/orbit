@@ -416,7 +416,44 @@ function kanban(el, sc, ctx) {
   return () => { pl.stop(); off(); tog.removeEventListener('change', onTog); };
 }
 
-const SCENES = { tokens, temperature, context, agentloop, pipeline, structures, orbit3d, prism3d, grid, cpm, kanban };
+/* ---------- cost: monthly agent bill calculator (example prices, user-editable) */
+function cost(el, sc, ctx) {
+  const L = ctx.L, d = sc.defaults;
+  const f = [
+    ['inTok', T('Input tokens per step', 'Tokens d’entrée par étape'), 500, 60000, 500],
+    ['outTok', T('Output tokens per step', 'Tokens de sortie par étape'), 100, 8000, 100],
+    ['steps', T('Steps per task', 'Étapes par tâche'), 1, 20, 1],
+    ['runs', T('Tasks per day', 'Tâches par jour'), 1, 200, 1],
+    ['cache', T('Share of input cached (%)', 'Part de l’entrée en cache (%)'), 0, 95, 5]
+  ];
+  const n = [
+    ['pIn', T('Input price, USD per million (example)', 'Prix entrée, USD par million (exemple)')],
+    ['pOut', T('Output price, USD per million (example)', 'Prix sortie, USD par million (exemple)')],
+    ['cacheDisc', T('Cache discount on cached input (%)', 'Remise du cache sur l’entrée en cache (%)')],
+    ['rate', T('BIF per USD (example, check today)', 'BIF par USD (exemple, vérifier le jour)')]
+  ];
+  const v = { ...d };
+  const stage = frame(el, ctx, `<div class="co">${f.map(([k, lab, mn, mx, st]) => `<label class="co-r"><span class="small">${esc(L(lab))}</span><input type="range" min="${mn}" max="${mx}" step="${st}" value="${v[k]}" data-k="${k}"><b class="mono" data-o="${k}"></b></label>`).join('')}
+    <details class="co-p"><summary class="small">${esc(L(T('Prices and exchange rate', 'Prix et taux de change')))}</summary>${n.map(([k, lab]) => `<label class="co-n"><span class="small">${esc(L(lab))}</span><input type="number" inputmode="decimal" min="0" step="any" value="${v[k]}" data-k="${k}"></label>`).join('')}</details>
+    <div class="co-out"><div><span class="small muted">${esc(L(T('Per task', 'Par tâche')))}</span><b class="mono co-task"></b></div><div><span class="small muted">${esc(L(T('Per month (30 days)', 'Par mois (30 jours)')))}</span><b class="mono co-month"></b><span class="small mono co-bif"></span></div></div>
+    <p class="small co-note" aria-live="polite"></p></div>`);
+  const fmt = x => x < 1 ? x.toFixed(3) : x < 100 ? x.toFixed(2) : Math.round(x).toLocaleString();
+  const calc = () => {
+    const inT = v.steps * v.inTok, outT = v.steps * v.outTok, c = v.cache / 100;
+    const inCost = inT / 1e6 * v.pIn * ((1 - c) + c * (1 - v.cacheDisc / 100));
+    const outCost = outT / 1e6 * v.pOut, task = inCost + outCost, month = task * v.runs * 30;
+    f.forEach(([k]) => { stage.querySelector(`[data-o="${k}"]`).textContent = (+v[k]).toLocaleString(); });
+    stage.querySelector('.co-task').textContent = `$${fmt(task)}`;
+    stage.querySelector('.co-month').textContent = `$${fmt(month)}`;
+    stage.querySelector('.co-bif').textContent = `≈ ${Math.round(month * v.rate).toLocaleString()} BIF`;
+    stage.querySelector('.co-note').textContent = outCost > inCost ? L(T('Output dominates: ask for shorter outputs.', 'La sortie domine : demander des sorties plus courtes.')) : L(T('Input dominates: trim context, cache the prefix, cut steps.', 'L’entrée domine : réduire le contexte, mettre le préfixe en cache, réduire les étapes.'));
+  };
+  const h = e => { const i = e.target.closest('[data-k]'); if (!i) return; const x = parseFloat(i.value); if (!isNaN(x) && x >= 0) { v[i.dataset.k] = x; calc(); } };
+  el.addEventListener('input', h); calc();
+  return () => el.removeEventListener('input', h);
+}
+
+const SCENES = { tokens, temperature, context, agentloop, pipeline, structures, orbit3d, prism3d, grid, cpm, kanban, cost };
 window.OrbitScenes = {
   mount(el, sc, ctx) { const f = SCENES[sc.type]; if (!f) { el.textContent = ''; return () => {}; } try { return f(el, sc, ctx) || (() => {}); } catch (e) { el.textContent = ''; return () => {}; } },
   is3d: sc => ['orbit3d', 'prism3d'].includes(sc?.type),
